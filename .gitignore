@@ -1,0 +1,17 @@
+# build output and downloaded toolchain
+/build/
+/dist/
+/.tools/
+
+# signing keys: never commit
+*.pem
+*.jks
+*.keystore
+
+# python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+.DS_Store

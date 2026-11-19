@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1c1d22">
+<title>Snip Studio</title>
+<style>
+:root{--bg:#121316;--panel:#1c1d22;--panel2:#2a2c34;--line:#30333c;--text:#ecedf1;--dim:#9a9eac;--accent:#4f8cff;--accent2:#2d64d8;--danger:#ff6161}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+#app{display:flex;flex-direction:column;height:100%}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+header{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:2px;padding:0 4px;background:var(--panel);border-bottom:1px solid var(--line)}
+.title{font-weight:650;letter-spacing:.2px;margin:0 6px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title small{color:var(--dim);font-weight:400;margin-left:6px}
+.ib{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto}
+.ib:active,.ib.on{background:var(--panel2)}
+.ib:disabled{opacity:.3}
+#stage{flex:1;position:relative;overflow:hidden;touch-action:none;background:#0b0c0e}
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#ctx{height:60px;flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:2px;padding:0 6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+#ctx::-webkit-scrollbar{display:none}
+.act{flex:0 0 auto;min-width:54px;height:50px;padding:0 6px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px}
+.act span{color:var(--dim);white-space:nowrap}
+.act:active{background:var(--panel2)}
+.act.on{background:var(--accent2)} .act.on span{color:#fff}
+.act.primary{background:var(--accent);color:#fff} .act.primary span{color:#fff}
+.act.danger{color:var(--danger)}
+.sep{width:1px;height:30px;background:var(--line);margin:0 4px;flex:0 0 auto}
+.hint{color:var(--dim);font-size:13px;padding:0 10px;white-space:nowrap}
+.sw{width:30px;height:30px;border-radius:50%;flex:0 0 auto;margin:0 3px;border:2px solid transparent;box-shadow:0 0 0 1px #0006 inset}
+.sw.on{border-color:#fff}
+.colorpick{position:relative;width:34px;height:34px;flex:0 0 auto;margin:0 4px;border-radius:50%;overflow:hidden;background:conic-gradient(red,#ff0,lime,cyan,blue,#f0f,red)}
+.colorpick input{position:absolute;inset:-6px;opacity:0;width:50px;height:50px}
+.range{display:flex;align-items:center;gap:8px;padding:0 8px;flex:0 0 auto;color:var(--dim);font-size:12px}
+.range input{width:130px;accent-color:var(--accent)}
+nav#tools{flex:0 0 auto;display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tool{flex:1;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--dim)}
+.tool.on{color:var(--accent)}
+.tool.on svg{filter:drop-shadow(0 0 6px #4f8cff66)}
+.tool:disabled{opacity:.3}
+/* welcome */
+#welcome{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+#welcome h1{margin:0;font-size:26px;letter-spacing:.3px}
+#welcome p{margin:0 0 6px;color:var(--dim);max-width:320px}
+.big{display:flex;align-items:center;gap:12px;width:260px;padding:16px 18px;border-radius:16px;background:var(--panel2);font-size:16px;font-weight:600}
+.big.primary{background:var(--accent);color:#fff}
+.big:active{filter:brightness(1.15)}
+.logo{width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#4f8cff,#9b5cff);display:grid;place-items:center;margin-bottom:4px}
+.logo svg{width:40px;height:40px;stroke:#fff}
+/* menus, sheets, modal */
+.scrim{position:fixed;inset:0;background:#0007;z-index:20}
+.scrim[hidden]{display:none}
+#menu{position:fixed;top:56px;left:6px;z-index:21;min-width:240px;max-height:calc(100% - 70px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 12px 40px #000a}
+#menu[hidden]{display:none}
+.mi{display:flex;align-items:center;gap:14px;width:100%;padding:12px 12px;border-radius:10px;text-align:left;font-size:15px}
+.mi:active{background:var(--panel2)}
+.mi:disabled{opacity:.35}
+.mi .k{margin-left:auto;color:var(--dim);font-size:12px}
+.mh{height:1px;background:var(--line);margin:5px 6px}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;max-height:62%;display:flex;flex-direction:column;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -10px 40px #0009;padding-bottom:env(safe-area-inset-bottom)}
+#sheet[hidden]{display:none}
+.sh-head{display:flex;align-items:center;padding:10px 8px 6px 18px;font-weight:650;font-size:16px}
+.sh-head div{flex:1}
+#layerList{overflow:auto;padding:0 8px;flex:1}
+.lr{display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;margin-bottom:4px;border:1px solid transparent}
+.lr.on{background:#2d64d833;border-color:#4f8cff88}
+.thumb{width:48px;height:48px;border-radius:8px;flex:0 0 auto;background:repeating-conic-gradient(#3a3d46 0 25%,#2a2c33 0 50%) 0 0/12px 12px;display:grid;place-items:center;overflow:hidden}
+.thumb canvas{max-width:100%;max-height:100%}
+.lname{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lname small{display:block;color:var(--dim);font-size:11px}
+.lr .ib{width:38px;height:38px}
+.lr.hid .thumb,.lr.hid .lname{opacity:.4}
+.sh-foot{display:flex;gap:2px;padding:6px 8px 8px;border-top:1px solid var(--line);overflow-x:auto}
+.sh-op{display:flex;align-items:center;gap:10px;padding:4px 18px 8px;color:var(--dim);font-size:12px}
+.sh-op input{flex:1;accent-color:var(--accent)}
+#modal{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:18px;background:#000a}
+#modal[hidden]{display:none}
+.card{width:100%;max-width:380px;max-height:100%;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 20px 60px #000}
+.card h2{margin:0 0 12px;font-size:18px}
+.card p{color:var(--dim);margin:0 0 12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.chip{padding:12px 8px;border-radius:12px;background:var(--panel2);text-align:center;font-size:13px}
+.chip b{display:block;font-size:14px;margin-bottom:2px;color:var(--text)}
+.chip span{color:var(--dim);font-size:11px}
+.chip.on{outline:2px solid var(--accent)}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.row label{color:var(--dim);font-size:12px;flex:0 0 auto}
+.field{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font:inherit;font-size:16px;user-select:text;-webkit-user-select:text}
+.btns{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.btn{padding:12px 18px;border-radius:12px;background:var(--panel2);font-weight:600}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.wide{width:100%;display:flex;align-items:center;gap:12px;margin-bottom:8px;text-align:left}
+.btn.wide small{display:block;font-weight:400;color:var(--dim);font-size:12px}
+.btn.primary small{color:#dfe8ff}
+.prev{max-width:100%;max-height:50vh;display:block;margin:0 auto 12px;border-radius:8px;background:repeating-conic-gradient(#3a3d46 0 25%,#2a2c33 0 50%) 0 0/16px 16px;user-select:auto;-webkit-user-select:auto;-webkit-touch-callout:default}
+#toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%) translateY(20px);opacity:0;z-index:40;background:#000d;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;pointer-events:none;transition:.2s;max-width:90%;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%)}
+#zoomBadge{position:absolute;right:8px;top:8px;background:#000a;color:#ddd;font-size:11px;padding:4px 8px;border-radius:999px;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button class="ib" id="bMenu" aria-label="Menu"><svg class="i"><use href="#i-menu"/></svg></button>
+    <div class="title">Snip Studio<small id="docInfo"></small></div>
+    <button class="ib" id="bUndo" aria-label="Undo"><svg class="i"><use href="#i-undo"/></svg></button>
+    <button class="ib" id="bRedo" aria-label="Redo"><svg class="i"><use href="#i-redo"/></svg></button>
+    <button class="ib" id="bLayers" aria-label="Layers"><svg class="i"><use href="#i-layers"/></svg></button>
+    <button class="ib" id="bSave" aria-label="Save"><svg class="i"><use href="#i-save"/></svg></button>
+  </header>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="zoomBadge" hidden></div>
+    <div id="welcome">
+      <div class="logo"><svg class="i"><use href="#i-cut"/></svg></div>
+      <h1>Snip Studio</h1>
+      <p>Cut, crop, rearrange and save your photos. Pinch with two fingers to zoom.</p>
+      <button class="big primary" id="wOpen"><svg class="i"><use href="#i-image"/></svg>Open a photo</button>
+      <button class="big" id="wNew"><svg class="i"><use href="#i-plus"/></svg>Blank canvas</button>
+    </div>
+  </div>
+  <div id="ctx"></div>
+  <nav id="tools">
+    <button class="tool" data-tool="move"><svg class="i"><use href="#i-move"/></svg>Move</button>
+    <button class="tool" data-tool="select"><svg class="i"><use href="#i-rect"/></svg>Select</button>
+    <button class="tool" data-tool="lasso"><svg class="i"><use href="#i-lasso"/></svg>Lasso</button>
+    <button class="tool" data-tool="crop"><svg class="i"><use href="#i-crop"/></svg>Crop</button>
+    <button class="tool" data-tool="brush"><svg class="i"><use href="#i-brush"/></svg>Brush</button>
+    <button class="tool" data-tool="eraser"><svg class="i"><use href="#i-eraser"/></svg>Eraser</button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div id="menu" hidden></div>
+<div id="sheet" hidden>
+  <div class="sh-head"><div>Layers</div><button class="ib" id="sheetClose" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <div class="sh-op" id="opRow"><span>Opacity</span><input type="range" id="opacity" min="0" max="100" value="100"><span id="opVal">100%</span></div>
+  <div id="layerList"></div>
+  <div class="sh-foot" id="sheetFoot"></div>
+</div>
+<div id="modal" hidden><div class="card" id="modalBody"></div></div>
+<div id="toast"></div>
+<input type="file" id="file" accept="image/*" multiple hidden>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></symbol>
+    <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"/></symbol>
+    <symbol id="i-rect" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 3"/></symbol>
+    <symbol id="i-lasso" viewBox="0 0 24 24"><path d="M7.5 17.2C4.6 16 3 13.8 3 11.3 3 7 7 4 12 4s9 3 9 7.3-4 7.2-9 7.2c-1.6 0-3.1-.3-4.5-.8"/><circle cx="7" cy="18" r="2"/><path d="M7 20c0 1.5-1 2-2 2"/></symbol>
+    <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></symbol>
+    <symbol id="i-brush" viewBox="0 0 24 24"><path d="m14.5 4.5 5 5L10 19l-5-5 9.5-9.5z"/><path d="M5 14l-2.5 7.5L10 19"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M20 20H8.5L3.6 15.1a2 2 0 0 1 0-2.8l8.7-8.7a2 2 0 0 1 2.8 0l5.3 5.3a2 2 0 0 1 0 2.8L12 20"/><path d="m7 9.5 7.5 7.5"/></symbol>
+    <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
+    <symbol id="i-lift" viewBox="0 0 24 24"><rect x="3" y="9" width="12" height="12" rx="1" stroke-dasharray="3 2.5"/><rect x="9" y="3" width="12" height="12" rx="1"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-fliph" viewBox="0 0 24 24"><path d="M12 3v18M8 7l-5 5 5 5zM16 7l5 5-5 5z"/></symbol>
+    <symbol id="i-flipv" viewBox="0 0 24 24"><path d="M3 12h18M7 8l5-5 5 5zM7 16l5 5 5-5z"/></symbol>
+    <symbol id="i-rot" viewBox="0 0 24 24"><path d="M20.5 13A8.5 8.5 0 1 1 18 6.5"/><path d="M20 3v5h-5"/></symbol>
+    <symbol id="i-dup" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11M14.5 11.5v6M11.5 14.5h6"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><path d="M3 3l18 18"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+    <symbol id="i-all" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1" stroke-dasharray="3 3"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-merge" viewBox="0 0 24 24"><path d="M12 3v10M8 9l4 4 4-4"/><path d="m3 15 9 5 9-5"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+    <symbol id="i-resize" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+    <symbol id="i-flat" viewBox="0 0 24 24"><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M12 3v8M8 7l4 4 4-4"/></symbol>
+    <symbol id="i-bg" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h6V3M9 15h6V9M15 21v-6h6"/></symbol>
+  </defs>
+</svg>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const cv = $('#cv'), cx = cv.getContext('2d');
+const MAXDIM = 4096, HIST = 30, HANDLE = 26;
+const ico = n => `<svg class="i"><use href="#i-${n}"/></svg>`;
+
+// ---------- state ----------
+let doc = null;            // {w,h,bg}
+let layers = [];           // bottom -> top
+let activeId = null, nextId = 1;
+let sel = null;            // {kind:'rect'|'poly', pts:[[x,y],...]} in document coords
+let clip = null;           // internal clipboard {canvas, x,y,s,r,fx,fy, n}
+let tool = 'move';
+let view = { z: 1, x: 0, y: 0 };
+let undoS = [], redoS = [];
+let crop = null, cropAspect = 0;
+const brush = { color: '#ff3b30', size: 14, esize: 30 };
+let dirty = false, sw = 0, sh = 0, lassoPts = null;
+
+// ---------- helpers ----------
+function mk(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+function cloneC(c) { const n = mk(c.width, c.height); n.getContext('2d').drawImage(c, 0, 0); return n; }
+function active() { return layers.find(l => l.id === activeId) || null; }
+function target() { return active() || layers[layers.length - 1] || null; }
+function newLayer(canvas, p = {}) {
+  const id = nextId++;
+  return { id, name: p.name || 'Layer ' + id, canvas, x: p.x ?? canvas.width / 2, y: p.y ?? canvas.height / 2,
+    s: p.s ?? 1, r: p.r ?? 0, fx: p.fx ?? 1, fy: p.fy ?? 1, visible: true, opacity: p.opacity ?? 1 };
+}
+function insertAbove(l, ref) { const i = ref ? layers.indexOf(ref) : layers.length - 1; layers.splice(i + 1, 0, l); activeId = l.id; }
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
+function LM(l) { return new DOMMatrix().translate(l.x, l.y).rotate(l.r * 180 / Math.PI).scale(l.s * l.fx, l.s * l.fy).translate(-l.canvas.width / 2, -l.canvas.height / 2); }
+function VM() { const d = devicePixelRatio || 1; return new DOMMatrix([d * view.z, 0, 0, d * view.z, d * view.x, d * view.y]); }
+function tp(m, x, y) { const p = m.transformPoint(new DOMPoint(x, y)); return [p.x, p.y]; }
+const s2d = (x, y) => [(x - view.x) / view.z, (y - view.y) / view.z];
+const d2s = (x, y) => [x * view.z + view.x, y * view.z + view.y];
+function corners(l) { const w = l.canvas.width, h = l.canvas.height, m = LM(l); return [tp(m, 0, 0), tp(m, w, 0), tp(m, w, h), tp(m, 0, h)]; }
+function bbox(pts) { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of pts) { if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; } return { x0, y0, x1, y1 }; }
+function polyPath(pts) { const p = new Path2D(); pts.forEach(([x, y], i) => i ? p.lineTo(x, y) : p.moveTo(x, y)); p.closePath(); return p; }
+function inPoly(pts, x, y) { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; }
+const rectPts = (a, b) => [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]]];
+const pickC = mk(1, 1), pickX = pickC.getContext('2d', { willReadFrequently: true });
+function localPt(l, x, y) { return tp(LM(l).inverse(), x, y); }
+function inBox(l, x, y) { const [u, v] = localPt(l, x, y); return u >= 0 && v >= 0 && u <= l.canvas.width && v <= l.canvas.height; }
+function alphaAt(l, x, y) {
+  const [u, v] = localPt(l, x, y);
+  if (u < 0 || v < 0 || u >= l.canvas.width || v >= l.canvas.height) return -1;
+  pickX.clearRect(0, 0, 1, 1); pickX.drawImage(l.canvas, Math.floor(u), Math.floor(v), 1, 1, 0, 0, 1, 1);
+  return pickX.getImageData(0, 0, 1, 1).data[3];
+}
+function pick(x, y) {
+  // sample a few points around the finger so thin pieces are still easy to grab
+  const r = 8 / view.z, offs = [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]];
+  for (let i = layers.length - 1; i >= 0; i--) { const l = layers[i]; if (!l.visible) continue; for (const [ox, oy] of offs) if (alphaAt(l, x + ox, y + oy) > 16) return l; }
+  return null;
+}
+
+// ---------- history ----------
+function snap() { return { doc: doc ? { ...doc } : null, layers: layers.map(l => ({ ...l })), activeId }; }
+function restore(s) { doc = s.doc ? { ...s.doc } : null; layers = s.layers.map(l => ({ ...l })); activeId = s.activeId; }
+function checkpoint() { undoS.push(snap()); if (undoS.length > HIST) undoS.shift(); redoS = []; dirty = true; }
+function undo() { if (!undoS.length) return; redoS.push(snap()); restore(undoS.pop()); afterHistory(); }
+function redo() { if (!redoS.length) return; undoS.push(snap()); restore(redoS.pop()); afterHistory(); }
+function afterHistory() { if (tool === 'crop') crop = doc ? { x: 0, y: 0, w: doc.w, h: doc.h } : null; sel = null; changed(); }
+function changed() { updateUI(); refreshLayers(); render(); }
+
+// ---------- view ----------
+function resize() {
+  const r = $('#stage').getBoundingClientRect(), d = devicePixelRatio || 1;
+  const first = !sw; sw = r.width; sh = r.height;
+  cv.width = Math.round(sw * d); cv.height = Math.round(sh * d);
+  if (first) fit(); render();
+}
+function fit() {
+  if (!doc || !sw) return; const pad = 22;
+  view.z = Math.min((sw - pad * 2) / doc.w, (sh - pad * 2) / doc.h);
+  view.x = (sw - doc.w * view.z) / 2; view.y = (sh - doc.h * view.z) / 2; render(); badge();
+}
+let badgeT = 0;
+function badge() { const b = $('#zoomBadge'); b.textContent = Math.round(view.z * 100) + '%'; b.hidden = false; clearTimeout(badgeT); badgeT = setTimeout(() => b.hidden = true, 900); }
+function zoomAt(sx, sy, k) { const [dx, dy] = s2d(sx, sy); view.z = Math.min(40, Math.max(0.02, view.z * k)); view.x = sx - dx * view.z; view.y = sy - dy * view.z; badge(); render(); }
+
+// ---------- rendering ----------
+let checker = null;
+function makeChecker() { const d = devicePixelRatio || 1, n = Math.round(8 * d), c = mk(n * 2, n * 2), g = c.getContext('2d'); g.fillStyle = '#c9cbd1'; g.fillRect(0, 0, n * 2, n * 2); g.fillStyle = '#eceef2'; g.fillRect(0, 0, n, n); g.fillRect(n, n, n, n); checker = cx.createPattern(c, 'repeat'); }
+let raf = 0;
+function render() { if (!raf) raf = requestAnimationFrame(draw); }
+function drawLayer(l, V) { if (!l.visible) return; cx.save(); cx.setTransform(V.multiply(LM(l))); cx.globalAlpha *= l.opacity; cx.imageSmoothingQuality = 'high'; cx.drawImage(l.canvas, 0, 0); cx.restore(); }
+function draw() {
+  raf = 0; const d = devicePixelRatio || 1;
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = '#0b0c0e'; cx.fillRect(0, 0, cv.width, cv.height);
+  if (!doc) return;
+  if (!checker) makeChecker();
+  const V = VM(), [dx, dy] = d2s(0, 0), dw = doc.w * view.z, dh = doc.h * view.z;
+  // parts of layers hanging off the canvas are shown faintly
+  cx.save(); cx.globalAlpha = 0.25; for (const l of layers) drawLayer(l, V); cx.restore();
+  cx.save(); cx.setTransform(d, 0, 0, d, 0, 0); cx.beginPath(); cx.rect(dx, dy, dw, dh); cx.clip();
+  cx.fillStyle = doc.bg === 'transparent' ? checker : doc.bg; cx.fillRect(dx, dy, dw, dh);
+  for (const l of layers) drawLayer(l, V);
+  cx.restore();
+  cx.setTransform(d, 0, 0, d, 0, 0);
+  cx.strokeStyle = '#ffffff30'; cx.lineWidth = 1; cx.strokeRect(dx - .5, dy - .5, dw + 1, dh + 1);
+
+  const a = active();
+  if (a && (tool === 'move' || tool === 'brush' || tool === 'eraser' || ((tool === 'select' || tool === 'lasso') && selFrom === 'layer'))) {
+    const c = corners(a).map(p => d2s(...p));
+    cx.beginPath(); c.forEach((p, i) => i ? cx.lineTo(...p) : cx.moveTo(...p)); cx.closePath();
+    cx.setLineDash(tool === 'move' ? [] : [4, 4]); cx.strokeStyle = '#4f8cff'; cx.lineWidth = 1.5; cx.stroke(); cx.setLineDash([]);
+    if (tool === 'move') {
+      const rk = rotKnob(a), top = d2s(...midpt(corners(a)[0], corners(a)[1]));
+      cx.beginPath(); cx.moveTo(...top); cx.lineTo(...rk); cx.stroke();
+      for (const p of c) dot(p, 7, '#fff', '#4f8cff');
+      dot(rk, 9, '#4f8cff', '#fff'); cx.save(); cx.translate(...rk); cx.strokeStyle = '#fff'; cx.lineWidth = 1.6; cx.beginPath(); cx.arc(0, 0, 4.2, -2.6, 1.6); cx.stroke(); cx.restore();
+    }
+  }
+  const pts = lassoPts || (sel && sel.pts);
+  if (pts && pts.length > 1) {
+    cx.beginPath(); pts.forEach(([x, y], i) => { const p = d2s(x, y); i ? cx.lineTo(...p) : cx.moveTo(...p); }); if (!lassoPts) cx.closePath();
+    if (!lassoPts) { cx.fillStyle = '#4f8cff18'; cx.fill(); }
+    const off = (performance.now() / 60) % 12;
+    cx.lineWidth = 1.5; cx.strokeStyle = '#000'; cx.setLineDash([6, 6]); cx.lineDashOffset = -off; cx.stroke();
+    cx.strokeStyle = '#fff'; cx.lineDashOffset = -off + 6; cx.stroke(); cx.setLineDash([]); cx.lineDashOffset = 0;
+  }
+  if (tool === 'crop' && crop) {
+    const [x0, y0] = d2s(crop.x, crop.y), w = crop.w * view.z, h = crop.h * view.z;
+    cx.fillStyle = '#000000a0'; cx.beginPath(); cx.rect(0, 0, sw, sh); cx.rect(x0, y0, w, h); cx.fill('evenodd');
+    cx.strokeStyle = '#ffffff70'; cx.lineWidth = 1; cx.beginPath();
+    for (let i = 1; i < 3; i++) { cx.moveTo(x0 + w * i / 3, y0); cx.lineTo(x0 + w * i / 3, y0 + h); cx.moveTo(x0, y0 + h * i / 3); cx.lineTo(x0 + w, y0 + h * i / 3); }
+    cx.stroke(); cx.strokeStyle = '#fff'; cx.lineWidth = 2; cx.strokeRect(x0, y0, w, h);
+    const hs = cropHandles(); cx.fillStyle = '#fff';
+    for (const k in hs) { const [px, py] = d2s(...hs[k]); if (k.length === 2) { cx.fillRect(px - 7, py - 7, 14, 14); } else { cx.fillRect(px - (k === 'n' || k === 's' ? 12 : 3), py - (k === 'n' || k === 's' ? 3 : 12), k === 'n' || k === 's' ? 24 : 6, k === 'n' || k === 's' ? 6 : 24); } }
+    cx.fillStyle = '#000b'; const label = `${Math.round(crop.w)} × ${Math.round(crop.h)}`; cx.font = '12px system-ui'; const tw = cx.measureText(label).width + 14;
+    cx.fillRect(x0 + w / 2 - tw / 2, Math.max(4, y0 - 30), tw, 22); cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.fillText(label, x0 + w / 2, Math.max(4, y0 - 30) + 15); cx.textAlign = 'start';
+  }
+}
+function dot(p, r, fill, stroke) { cx.beginPath(); cx.arc(p[0], p[1], r, 0, Math.PI * 2); cx.fillStyle = fill; cx.fill(); cx.lineWidth = 2; cx.strokeStyle = stroke; cx.stroke(); }
+const midpt = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+function rotKnob(l) { // screen position of the rotate knob, above the layer's top edge
+  const c = corners(l).map(p => d2s(...p)), m = midpt(c[0], c[1]), ctr = midpt(c[0], c[2]);
+  const v = [m[0] - ctr[0], m[1] - ctr[1]], n = Math.hypot(...v) || 1; return [m[0] + v[0] / n * 34, m[1] + v[1] / n * 34];
+}
+setInterval(() => { if (sel || lassoPts) render(); }, 80);
+
+// ---------- crop ----------
+function cropHandles() { const r = crop; return { nw: [r.x, r.y], n: [r.x + r.w / 2, r.y], ne: [r.x + r.w, r.y], e: [r.x + r.w, r.y + r.h / 2], se: [r.x + r.w, r.y + r.h], s: [r.x + r.w / 2, r.y + r.h], sw: [r.x, r.y + r.h], w: [r.x, r.y + r.h / 2] }; }
+function setAspect(a) {
+  cropAspect = a; if (!a) { changed(); return; }
+  let w = doc.w, h = w / a; if (h > doc.h) { h = doc.h; w = h * a; }
+  crop = { x: (doc.w - w) / 2, y: (doc.h - h) / 2, w, h }; changed();
+}
+function dragCrop(hd, dx, dy) {
+  const { x, y, w, h } = g.r0, a = cropAspect, MIN = 8, L = x, T = y, R = x + w, B = y + h;
+  let l = L, t = T, r = R, b = B;
+  if (hd === 'move') { l += dx; r += dx; t += dy; b += dy; }
+  else {
+    if (hd.includes('w')) l = Math.min(L + dx, R - MIN); if (hd.includes('e')) r = Math.max(R + dx, L + MIN);
+    if (hd.includes('n')) t = Math.min(T + dy, B - MIN); if (hd.includes('s')) b = Math.max(B + dy, T + MIN);
+    if (a) {
+      let nw = r - l, nh = b - t;
+      if (hd.length === 2) { if (nw / nh > a) nw = nh * a; else nh = nw / a; if (hd.includes('w')) l = r - nw; else r = l + nw; if (hd.includes('n')) t = b - nh; else b = t + nh; }
+      else if (hd === 'n' || hd === 's') { nw = nh * a; const m = (L + R) / 2; l = m - nw / 2; r = m + nw / 2; }
+      else { nh = nw / a; const m = (T + B) / 2; t = m - nh / 2; b = m + nh / 2; }
+    }
+  }
+  crop = { x: l, y: t, w: r - l, h: b - t };
+}
+function applyCrop(r) {
+  const x = Math.round(r.x), y = Math.round(r.y), w = Math.round(r.w), h = Math.round(r.h);
+  if (w < 1 || h < 1) return;
+  checkpoint(); doc.w = w; doc.h = h; for (const l of layers) { l.x -= x; l.y -= y; }
+  sel = null; fit(); setTool('move'); toast(`Cropped to ${w} × ${h}`);
+}
+
+// ---------- selection operations ----------
+function extract(l, pts, cut) {
+  const lp = pts.map(([x, y]) => localPt(l, x, y)), b = bbox(lp), W = l.canvas.width, H = l.canvas.height;
+  const x0 = Math.max(0, Math.floor(b.x0)), y0 = Math.max(0, Math.floor(b.y0)), x1 = Math.min(W, Math.ceil(b.x1)), y1 = Math.min(H, Math.ceil(b.y1));
+  if (x1 - x0 < 1 || y1 - y0 < 1) return null;
+  const piece = mk(x1 - x0, y1 - y0), pc = piece.getContext('2d');
+  pc.translate(-x0, -y0); pc.clip(polyPath(lp)); pc.drawImage(l.canvas, 0, 0);
+  let rest = null;
+  if (cut) { rest = cloneC(l.canvas); const rc = rest.getContext('2d'); rc.globalCompositeOperation = 'destination-out'; rc.fill(polyPath(lp)); }
+  const [px, py] = tp(LM(l), x0 + (x1 - x0) / 2, y0 + (y1 - y0) / 2);
+  return { canvas: piece, props: { x: px, y: py, s: l.s, r: l.r, fx: l.fx, fy: l.fy, opacity: l.opacity }, rest };
+}
+let selFrom = 'all'; // 'all' = cut what you see (every visible layer), 'layer' = only the active layer
+function boxesMeet(a, b) { return a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0; }
+// Extract the selected area. Returns {canvas, props, rests: Map(layer -> canvas with the area removed), top}
+function grab(cut) {
+  if (!sel) { toast('Draw a selection first'); return null; }
+  const pts = sel.pts, sb = bbox(pts);
+  let src;
+  if (selFrom === 'layer') { const l = target(); if (!l || !l.visible) { toast(l ? 'That layer is hidden' : 'Nothing to select from'); return null; } src = [l]; }
+  else src = layers.filter(l => l.visible && boxesMeet(bbox(corners(l)), sb));
+  if (!src.length) { toast('Nothing inside the selection'); return null; }
+  const rests = new Map();
+  if (src.length === 1) { // exact pixels, keeps the layer's own resolution and angle
+    const ex = extract(src[0], pts, cut); if (!ex) { toast('Selection is outside the layer'); return null; }
+    if (cut) rests.set(src[0], ex.rest);
+    return { canvas: ex.canvas, props: ex.props, rests, top: src[0] };
+  }
+  const ub = bbox(src.flatMap(corners)), b = { x0: Math.max(sb.x0, ub.x0), y0: Math.max(sb.y0, ub.y0), x1: Math.min(sb.x1, ub.x1), y1: Math.min(sb.y1, ub.y1) };
+  const W = b.x1 - b.x0, H = b.y1 - b.y0; if (W < 1 || H < 1) { toast('Nothing inside the selection'); return null; }
+  let k = Math.max(1, ...src.map(l => 1 / l.s)); k = Math.min(k, MAXDIM / Math.max(W, H));
+  const piece = mk(W * k, H * k), pc = piece.getContext('2d'), base = new DOMMatrix().scale(k, k).translate(-b.x0, -b.y0);
+  pc.setTransform(base); pc.clip(polyPath(pts)); pc.imageSmoothingQuality = 'high';
+  for (const l of src) { pc.setTransform(base.multiply(LM(l))); pc.globalAlpha = l.opacity; pc.drawImage(l.canvas, 0, 0); }
+  if (cut) for (const l of src) { const ex = extract(l, pts, true); if (ex) rests.set(l, ex.rest); }
+  return { canvas: piece, props: { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, s: 1 / k, r: 0, fx: 1, fy: 1, opacity: 1 }, rests, top: src[src.length - 1] };
+}
+function applyRests(gr) { for (const [l, c] of gr.rests) l.canvas = c; }
+function doCopy() { const gr = grab(false); if (!gr) return; clip = { canvas: gr.canvas, ...gr.props, n: 1 }; toast('Copied — tap Paste to add it'); updateUI(); }
+function doCut() {
+  const gr = grab(true); if (!gr) return;
+  checkpoint(); applyRests(gr); clip = { canvas: gr.canvas, ...gr.props, n: 0 }; sel = null; toast('Cut — tap Paste to place it'); changed();
+}
+function doLift() { // cut selection into its own layer, ready to move
+  const gr = grab(true); if (!gr) return null;
+  checkpoint(); applyRests(gr); const nl = newLayer(gr.canvas, { ...gr.props, name: 'Cut piece' }); insertAbove(nl, gr.top); sel = null; return nl;
+}
+function doErase() { const gr = grab(true); if (!gr) return; checkpoint(); applyRests(gr); changed(); }
+function doPaste() {
+  if (!clip) return toast('Clipboard is empty'); if (!doc) return;
+  checkpoint(); const o = clip.n * 24 / view.z; clip.n++;
+  const nl = newLayer(clip.canvas, { ...clip, x: clip.x + o, y: clip.y + o, name: 'Pasted' }); insertAbove(nl, active());
+  sel = null; setTool('move'); toast('Pasted as a new layer — drag to place it');
+}
+function selectAll() { if (!doc) return; sel = { kind: 'rect', pts: rectPts([0, 0], [doc.w, doc.h]) }; changed(); }
+function cropToSel() { if (!sel) return; const b = bbox(sel.pts); applyCrop({ x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 }); }
+
+// ---------- layer operations ----------
+function lop(fn) { const l = active(); if (!l) return toast('Tap a layer first'); checkpoint(); fn(l); changed(); }
+const flipH = () => lop(l => l.fx *= -1), flipV = () => lop(l => l.fy *= -1);
+const rot90 = () => lop(l => l.r = Math.round((l.r + Math.PI / 2) / (Math.PI / 2)) * (Math.PI / 2));
+const fwd = () => lop(l => { const i = layers.indexOf(l); if (i < layers.length - 1) { layers.splice(i, 1); layers.splice(i + 1, 0, l); } });
+const back = () => lop(l => { const i = layers.indexOf(l); if (i > 0) { layers.splice(i, 1); layers.splice(i - 1, 0, l); } });
+const fitLayer = () => lop(l => { l.r = 0; l.s = Math.min(doc.w / l.canvas.width, doc.h / l.canvas.height); l.x = doc.w / 2; l.y = doc.h / 2; });
+function dupLayer() { const l = active(); if (!l) return; checkpoint(); const o = 24 / view.z; const n = newLayer(l.canvas, { ...l, x: l.x + o, y: l.y + o, name: l.name + ' copy' }); insertAbove(n, l); changed(); }
+function delLayer() { const l = active(); if (!l) return; checkpoint(); const i = layers.indexOf(l); layers.splice(i, 1); activeId = (layers[i] || layers[i - 1] || {}).id ?? null; changed(); }
+function emptyLayer() { if (!doc) return; checkpoint(); const n = newLayer(mk(doc.w, doc.h), { x: doc.w / 2, y: doc.h / 2, name: 'Paint layer' }); insertAbove(n, active()); changed(); }
+function mergeDown() {
+  const b = active(); const i = layers.indexOf(b); if (i <= 0) return toast('No layer below to merge into');
+  const a = layers[i - 1]; const bb = bbox([...corners(a), ...corners(b)]);
+  const W = bb.x1 - bb.x0, H = bb.y1 - bb.y0; let k = Math.max(1, 1 / Math.min(a.s, b.s)); k = Math.min(k, MAXDIM / Math.max(W, H, 1));
+  const c = mk(W * k, H * k), g2 = c.getContext('2d'); g2.imageSmoothingQuality = 'high';
+  for (const l of [a, b]) if (l.visible) { g2.setTransform(new DOMMatrix().scale(k, k).translate(-bb.x0, -bb.y0).multiply(LM(l))); g2.globalAlpha = l.opacity; g2.drawImage(l.canvas, 0, 0); }
+  checkpoint(); const n = newLayer(c, { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2, s: 1 / k, name: a.name }); layers.splice(i - 1, 2, n); activeId = n.id; changed();
+}
+function renderDoc(white) {
+  const c = mk(doc.w, doc.h), g2 = c.getContext('2d');
+  if (doc.bg !== 'transparent' || white) { g2.fillStyle = doc.bg === 'transparent' ? '#fff' : doc.bg; g2.fillRect(0, 0, c.width, c.height); }
+  g2.imageSmoothingQuality = 'high';
+  for (const l of layers) { if (!l.visible) continue; g2.setTransform(LM(l)); g2.globalAlpha = l.opacity; g2.drawImage(l.canvas, 0, 0); }
+  return c;
+}
+function flatten() {
+  if (!doc || !layers.length) return; const c = mk(doc.w, doc.h), g2 = c.getContext('2d'); g2.imageSmoothingQuality = 'high';
+  for (const l of layers) { if (!l.visible) continue; g2.setTransform(LM(l)); g2.globalAlpha = l.opacity; g2.drawImage(l.canvas, 0, 0); }
+  checkpoint(); const n = newLayer(c, { x: doc.w / 2, y: doc.h / 2, name: 'Flattened' }); layers = [n]; activeId = n.id; changed(); toast('Flattened into one layer');
+}
+function rotateDoc() { if (!doc) return; checkpoint(); const H = doc.h; for (const l of layers) { const x = l.x; l.x = H - l.y; l.y = x; l.r += Math.PI / 2; } [doc.w, doc.h] = [doc.h, doc.w]; sel = null; fit(); changed(); }
+function flipDoc() { if (!doc) return; checkpoint(); for (const l of layers) { l.x = doc.w - l.x; l.fx *= -1; l.r = -l.r; } sel = null; changed(); }
+
+// ---------- files ----------
+function loadFile(f) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(f), img = new Image();
+    img.onload = () => { const k = Math.min(1, MAXDIM / Math.max(img.naturalWidth, img.naturalHeight)); const c = mk(img.naturalWidth * k, img.naturalHeight * k); const g2 = c.getContext('2d'); g2.imageSmoothingQuality = 'high'; g2.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('decode')); };
+    img.src = url;
+  });
+}
+let fileMode = 'open';
+function pickFiles(mode) { fileMode = mode; closeAll(); const f = $('#file'); f.value = ''; f.click(); }
+$('#file').addEventListener('change', async e => {
+  const files = [...e.target.files]; if (!files.length) return;
+  let first = true, failed = 0;
+  for (const f of files) {
+    let c; try { c = await loadFile(f); } catch { failed++; continue; }
+    if ((fileMode === 'open' && first) || !doc) {
+      checkpoint(); doc = { w: c.width, h: c.height, bg: 'transparent' }; layers = [];
+      const l = newLayer(c, { name: f.name.replace(/\.[^.]+$/, '') || 'Photo' }); layers.push(l); activeId = l.id; sel = null; fit();
+    } else {
+      checkpoint(); const s = Math.min(1, .8 * doc.w / c.width, .8 * doc.h / c.height), o = layers.length % 5 * 20 / view.z;
+      const l = newLayer(c, { x: doc.w / 2 + o, y: doc.h / 2 + o, s, name: f.name.replace(/\.[^.]+$/, '') || 'Photo' }); insertAbove(l, null);
+    }
+    first = false;
+  }
+  if (failed) toast(failed + ' file(s) could not be opened (unsupported format)');
+  setTool('move'); changed();
+});
+
+// downloads capability (saving from inside Claude)
+let dlP = Promise.resolve(null);
+try { if (window.claude && typeof window.claude.use === 'function') dlP = Promise.resolve(window.claude.use('downloads')).catch(() => null); } catch { }
+function stamp() { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; }
+async function save(fmt) {
+  closeAll(); if (!doc) return;
+  const c = renderDoc(fmt === 'jpg');
+  const blob = await new Promise(r => c.toBlob(r, fmt === 'jpg' ? 'image/jpeg' : 'image/png', 0.92));
+  if (!blob) return toast('Image too large to export');
+  const name = `snip-${stamp()}.${fmt}`;
+  if (window.AndroidBridge) { // running inside the Android app: write straight to the photo gallery
+    toast('Saving…');
+    const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(blob); });
+    const res = window.AndroidBridge.saveImage(b64, name, fmt === 'jpg' ? 'image/jpeg' : 'image/png');
+    if (res === 'ok') { dirty = false; toast('Saved to Pictures › Snip Studio'); } else { toast('Save failed: ' + res); showPreview(blob, name); }
+    return;
+  }
+  const dl = await Promise.race([dlP, new Promise(r => setTimeout(() => r(null), 1500))]);
+  if (dl) {
+    try { await dl.save({ filename: name, data: blob }); dirty = false; toast('Saved ' + name); return; }
+    catch (e) { if (e && e.code === 'declined') return toast('Save cancelled'); if (e && e.code === 'rate_limited') return toast('A save is already open'); }
+  }
+  showPreview(blob, name);
+}
+function showPreview(blob, name) {
+  const url = URL.createObjectURL(blob);
+  modal(`<h2>Your image</h2><p>Long-press the image and choose <b>Download image</b> to save it to your phone.</p>
+    <img class="prev" src="${url}" alt="Edited image">
+    <div class="btns"><a class="btn" href="${url}" download="${name}" style="text-decoration:none;color:var(--text)">Download</a><button class="btn primary" data-close>Done</button></div>`);
+}
+
+// ---------- pointer input ----------
+const ptrs = new Map(); let g = null;
+function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointerdown', e => {
+  if (!doc) return; try { cv.setPointerCapture(e.pointerId); } catch { } ptrs.set(e.pointerId, pos(e));
+  if (ptrs.size === 1) startSingle(pos(e));
+  else if (ptrs.size === 2) { cancelSingle(); startPinch(); }
+});
+cv.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, pos(e));
+  if (g && g.type === 'pinch') { if (ptrs.size >= 2) movePinch(); }
+  else if (g && ptrs.size === 1) moveSingle(pos(e));
+});
+function up(e) {
+  if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId);
+  if (g && g.type === 'pinch') { if (ptrs.size < 2) { g = { type: 'idle' }; changed(); } }
+  else if (g) { endSingle(); g = null; }
+  if (!ptrs.size) g = null;
+}
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('wheel', e => { e.preventDefault(); if (!doc) return; const [x, y] = pos(e); zoomAt(x, y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+
+function startSingle(s) {
+  const p = s2d(...s); g = { type: 'none', s0: s, p0: p, moved: false, prevSel: sel };
+  if (tool === 'move') {
+    const a = active();
+    if (a) {
+      const c = corners(a).map(q => d2s(...q));
+      if (dist(s, rotKnob(a)) < HANDLE) { g.type = 'rotate'; }
+      else if (c.some(q => dist(s, q) < HANDLE)) { g.type = 'scale'; }
+      if (g.type !== 'none') { g.l0 = { ...a }; g.ctr = [a.x, a.y]; return; }
+    }
+    const hit = pick(...p);
+    if (hit) { if (hit.id !== activeId) { activeId = hit.id; changed(); } }
+    const l = hit || (a && inBox(a, ...p) ? a : null);
+    if (l) { g.type = 'drag'; g.l0 = { ...l }; } else { g.type = 'pan'; g.v0 = { ...view }; if (activeId) { g.tapClear = true; } }
+  } else if (tool === 'select' || tool === 'lasso') {
+    if (sel && inPoly(sel.pts, ...p)) {
+      const nl = doLift(); if (nl) { g.type = 'drag'; g.l0 = { ...nl }; g.lifted = true; g.moved = true; changed(); return; }
+    }
+    if (tool === 'select') { g.type = 'rect'; }
+    else { g.type = 'lasso'; lassoPts = [p]; sel = null; }
+  } else if (tool === 'crop') {
+    const hs = cropHandles(); let hd = null;
+    for (const k in hs) if (dist(s, d2s(...hs[k])) < HANDLE) { hd = k; if (k.length === 2) break; }
+    if (!hd && p[0] > crop.x && p[0] < crop.x + crop.w && p[1] > crop.y && p[1] < crop.y + crop.h) hd = 'move';
+    if (hd) { g.type = 'crop'; g.hd = hd; g.r0 = { ...crop }; } else { g.type = 'pan'; g.v0 = { ...view }; }
+  } else if (tool === 'brush' || tool === 'eraser') {
+    let l = active();
+    if (!l || !l.visible) { if (tool === 'eraser') { toast('Pick a layer to erase'); g.type = 'pan'; g.v0 = { ...view }; return; } emptyLayer(); l = active(); g.created = true; }
+    if (!g.created) checkpoint();
+    l.canvas = cloneC(l.canvas); g.type = 'paint'; g.l = l; g.last = localPt(l, ...p); g.moved = true;
+    paintSeg(g.last, g.last); render();
+  }
+}
+function paintSeg(a, b) {
+  const l = g.l, c = l.canvas.getContext('2d'); c.save();
+  c.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over';
+  c.strokeStyle = brush.color; c.lineCap = 'round'; c.lineJoin = 'round';
+  c.lineWidth = (tool === 'eraser' ? brush.esize : brush.size) / l.s;
+  c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0] + 0.01, b[1]); c.stroke(); c.restore();
+}
+function moveSingle(s) {
+  const p = s2d(...s), dx = p[0] - g.p0[0], dy = p[1] - g.p0[1];
+  if (!g.moved && dist(s, g.s0) < 4) return;
+  const firstMove = !g.moved; g.moved = true;
+  const a = active();
+  switch (g.type) {
+    case 'pan': view.x = g.v0.x + (s[0] - g.s0[0]); view.y = g.v0.y + (s[1] - g.s0[1]); g.tapClear = false; break;
+    case 'drag': if (firstMove && !g.lifted) checkpoint(); a.x = g.l0.x + dx; a.y = g.l0.y + dy; break;
+    case 'scale': { if (firstMove) checkpoint(); const k = dist(g.ctr, p) / Math.max(1e-6, dist(g.ctr, g.p0)); a.s = Math.max(0.005, g.l0.s * k); break; }
+    case 'rotate': {
+      if (firstMove) checkpoint(); let r = g.l0.r + ang(g.ctr, p) - ang(g.ctr, g.p0);
+      const q = Math.PI / 2, near = Math.round(r / q) * q; if (Math.abs(r - near) < 0.05) r = near; a.r = r; break;
+    }
+    case 'rect': sel = { kind: 'rect', pts: rectPts(g.p0, p) }; break;
+    case 'lasso': { const last = lassoPts[lassoPts.length - 1]; if (dist(last, p) * view.z > 3) lassoPts.push(p); break; }
+    case 'crop': dragCrop(g.hd, dx, dy); break;
+    case 'paint': { const lp = localPt(g.l, ...p); paintSeg(g.last, lp); g.last = lp; break; }
+  }
+  render();
+}
+function endSingle() {
+  switch (g.type) {
+    case 'rect': { if (!g.moved || !sel) { sel = null; break; } const b = bbox(sel.pts); if ((b.x1 - b.x0) * view.z < 6 || (b.y1 - b.y0) * view.z < 6) sel = null; break; }
+    case 'lasso': sel = lassoPts.length > 2 ? { kind: 'poly', pts: lassoPts } : null; lassoPts = null; break;
+    case 'pan': if (g.tapClear && !g.moved) { activeId = null; } break;
+    case 'drag': if (g.lifted) { setTool('move'); toast('Moved into its own layer'); } break;
+  }
+  changed();
+}
+function cancelSingle() { // a second finger arrived: undo whatever the first finger started
+  if (!g) return;
+  if (g.moved && ['drag', 'scale', 'rotate', 'paint'].includes(g.type) && undoS.length) { restore(undoS.pop()); }
+  if (g.type === 'rect' || g.type === 'lasso') { sel = g.prevSel; lassoPts = null; }
+  if (g.type === 'crop') crop = g.r0;
+  g = null; changed();
+}
+function startPinch() {
+  const [a, b] = [...ptrs.values()]; const m = midpt(a, b), l = active();
+  g = { type: 'pinch', a0: a, b0: b, v0: { ...view }, target: 'view' };
+  if (tool === 'move' && l && (inBox(l, ...s2d(...a)) || inBox(l, ...s2d(...b)) || inBox(l, ...s2d(...m)))) { g.target = 'layer'; g.l0 = { ...l }; g.started = false; }
+}
+function movePinch() {
+  const [a, b] = [...ptrs.values()];
+  const k = dist(a, b) / Math.max(1, dist(g.a0, g.b0)), da = ang(a, b) - ang(g.a0, g.b0), m = midpt(a, b), m0 = midpt(g.a0, g.b0);
+  if (g.target === 'view') {
+    const z = Math.min(40, Math.max(0.02, g.v0.z * k)), dx = (m0[0] - g.v0.x) / g.v0.z, dy = (m0[1] - g.v0.y) / g.v0.z;
+    view.z = z; view.x = m[0] - dx * z; view.y = m[1] - dy * z; badge();
+  } else {
+    const l = active(); if (!l) return; if (!g.started) { checkpoint(); g.started = true; }
+    const md0 = s2d(...m0), md = s2d(...m), c0 = [g.l0.x - md0[0], g.l0.y - md0[1]], cs = Math.cos(da), sn = Math.sin(da);
+    l.s = Math.max(0.005, g.l0.s * k); l.r = g.l0.r + da; l.x = md[0] + k * (c0[0] * cs - c0[1] * sn); l.y = md[1] + k * (c0[0] * sn + c0[1] * cs);
+  }
+  render();
+}
+
+// ---------- UI ----------
+function setTool(t) {
+  if (!doc && t !== 'move') return;
+  tool = t; lassoPts = null;
+  if (t === 'crop') { crop = { x: 0, y: 0, w: doc.w, h: doc.h }; cropAspect = 0; }
+  else crop = null;
+  changed();
+}
+function A(icon, label, fn, cls = '') { return { icon, label, fn, cls }; }
+function updateUI() {
+  $('#welcome').hidden = !!doc;
+  $('#bUndo').disabled = !undoS.length; $('#bRedo').disabled = !redoS.length;
+  $('#bSave').disabled = !doc; $('#bLayers').disabled = !doc;
+  $('#docInfo').textContent = doc ? `${doc.w}×${doc.h}` : '';
+  document.querySelectorAll('.tool').forEach(b => { b.classList.toggle('on', b.dataset.tool === tool && !!doc); b.disabled = !doc; });
+  const bar = $('#ctx'); bar.innerHTML = '';
+  if (!doc) { bar.innerHTML = '<div class="hint">Open a photo to start editing</div>'; return; }
+  const a = active(); let items = [];
+  if (tool === 'move') {
+    if (a) items = [A('dup', 'Duplicate', dupLayer), A('fliph', 'Flip H', flipH), A('flipv', 'Flip V', flipV), A('rot', 'Rotate', rot90), A('fit', 'Fit', fitLayer), A('up', 'Forward', fwd), A('down', 'Back', back), A('trash', 'Delete', delLayer, 'danger')];
+    else items = [{ hint: 'Tap a piece to select it · drag to move · pinch to zoom' }];
+    if (clip) items.unshift(A('paste', 'Paste', doPaste));
+  } else if (tool === 'select' || tool === 'lasso') {
+    if (sel) items = [A('cut', 'Cut', doCut), A('copy', 'Copy', doCopy), A('lift', 'To layer', () => { if (doLift()) { setTool('move'); toast('Selection moved to a new layer'); } }), A('trash', 'Erase', doErase), A('crop', 'Crop', cropToSel), A('x', 'Deselect', () => { sel = null; changed(); })];
+    else items = [{ hint: tool === 'lasso' ? 'Draw around what you want to cut' : 'Drag to select an area' }, A('all', 'Select all', selectAll)];
+    if (clip) items.push(A('paste', 'Paste', doPaste));
+    items.push({ sep: 1 }, A('layers', selFrom === 'all' ? 'All layers' : 'This layer', () => { selFrom = selFrom === 'all' ? 'layer' : 'all'; toast(selFrom === 'all' ? 'Cuts from everything you see' : 'Cuts only from the selected layer'); updateUI(); }, selFrom === 'layer' ? 'on' : ''));
+    if (sel) items.push({ hint: 'Tip: drag inside the selection to move it' });
+  } else if (tool === 'crop') {
+    const asp = [['Free', 0], ['Orig', doc.w / doc.h], ['1:1', 1], ['4:3', 4 / 3], ['3:4', 3 / 4], ['16:9', 16 / 9], ['9:16', 9 / 16]];
+    items = [A('x', 'Cancel', () => setTool('move')), A('check', 'Apply', () => applyCrop(crop), 'primary'), { sep: 1 },
+      ...asp.map(([n, v]) => ({ text: n, fn: () => setAspect(v), cls: Math.abs(cropAspect - v) < 1e-6 ? 'on' : '' }))];
+  } else if (tool === 'brush' || tool === 'eraser') {
+    if (tool === 'brush') {
+      for (const c of ['#000000', '#ffffff', '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#0a84ff', '#af52de']) {
+        const b = document.createElement('button'); b.className = 'sw' + (brush.color === c ? ' on' : ''); b.style.background = c; b.onclick = () => { brush.color = c; updateUI(); }; bar.appendChild(b);
+      }
+      const cp = document.createElement('label'); cp.className = 'colorpick'; cp.innerHTML = `<input type="color" value="${brush.color}">`;
+      cp.querySelector('input').oninput = e => { brush.color = e.target.value; }; cp.querySelector('input').onchange = () => updateUI(); bar.appendChild(cp);
+    }
+    const key = tool === 'eraser' ? 'esize' : 'size', r = document.createElement('div'); r.className = 'range';
+    r.innerHTML = `Size <input type="range" min="1" max="200" value="${brush[key]}"><span>${brush[key]}</span>`;
+    r.querySelector('input').oninput = e => { brush[key] = +e.target.value; r.querySelector('span').textContent = e.target.value; }; bar.appendChild(r);
+    if (!a) bar.insertAdjacentHTML('beforeend', `<div class="hint">${tool === 'brush' ? 'Paints on a new layer' : 'Select a layer first'}</div>`);
+    return;
+  }
+  for (const it of items) {
+    if (it.hint) { bar.insertAdjacentHTML('beforeend', `<div class="hint">${it.hint}</div>`); continue; }
+    if (it.sep) { bar.insertAdjacentHTML('beforeend', '<div class="sep"></div>'); continue; }
+    const b = document.createElement('button'); b.className = 'act ' + (it.cls || '');
+    b.innerHTML = it.text ? `<b style="font-size:14px">${it.text}</b>` : `${ico(it.icon)}<span>${it.label}</span>`;
+    b.onclick = it.fn; bar.appendChild(b);
+  }
+}
+
+// layers sheet
+function refreshLayers() {
+  if ($('#sheet').hidden) return;
+  const list = $('#layerList'); list.innerHTML = '';
+  if (!layers.length) list.innerHTML = '<p class="hint" style="padding:12px">No layers yet</p>';
+  [...layers].reverse().forEach(l => {
+    const row = document.createElement('div'); row.className = 'lr' + (l.id === activeId ? ' on' : '') + (l.visible ? '' : ' hid');
+    const th = document.createElement('div'); th.className = 'thumb'; const k = Math.min(48 / l.canvas.width, 48 / l.canvas.height);
+    const tc = mk(l.canvas.width * k, l.canvas.height * k); tc.getContext('2d').drawImage(l.canvas, 0, 0, tc.width, tc.height); th.appendChild(tc);
+    const nm = document.createElement('div'); nm.className = 'lname'; nm.innerHTML = `${esc(l.name)}<small>${l.canvas.width}×${l.canvas.height}${l.opacity < 1 ? ' · ' + Math.round(l.opacity * 100) + '%' : ''}</small>`;
+    const mkb = (icon, fn, label) => { const b = document.createElement('button'); b.className = 'ib'; b.setAttribute('aria-label', label); b.innerHTML = ico(icon); b.onclick = ev => { ev.stopPropagation(); fn(); }; return b; };
+    row.append(th, nm,
+      mkb(l.visible ? 'eye' : 'eyeoff', () => { checkpoint(); l.visible = !l.visible; changed(); }, 'Toggle visibility'),
+      mkb('up', () => { activeId = l.id; fwd(); }, 'Move up'),
+      mkb('down', () => { activeId = l.id; back(); }, 'Move down'));
+    row.onclick = () => { activeId = l.id; if (tool !== 'brush' && tool !== 'eraser') tool = 'move'; changed(); };
+    list.appendChild(row);
+  });
+  const a = active(); $('#opRow').style.display = a ? '' : 'none';
+  if (a) { $('#opacity').value = Math.round(a.opacity * 100); $('#opVal').textContent = Math.round(a.opacity * 100) + '%'; }
+  const foot = $('#sheetFoot'); foot.innerHTML = '';
+  [A('image', 'Add photo', () => pickFiles('add')), A('plus', 'Empty', emptyLayer), A('dup', 'Duplicate', dupLayer), A('merge', 'Merge down', mergeDown), A('trash', 'Delete', delLayer, 'danger')]
+    .forEach(it => { const b = document.createElement('button'); b.className = 'act ' + it.cls; b.innerHTML = `${ico(it.icon)}<span>${it.label}</span>`; b.onclick = it.fn; foot.appendChild(b); });
+}
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let opStarted = false;
+$('#opacity').addEventListener('input', e => { const a = active(); if (!a) return; if (!opStarted) { checkpoint(); opStarted = true; } a.opacity = e.target.value / 100; $('#opVal').textContent = e.target.value + '%'; render(); });
+$('#opacity').addEventListener('change', () => { opStarted = false; changed(); });
+
+// menus & modal
+function closeAll() { $('#menu').hidden = true; $('#sheet').hidden = true; $('#scrim').hidden = true; $('#bLayers').classList.remove('on'); }
+$('#scrim').onclick = closeAll; $('#sheetClose').onclick = closeAll;
+function openMenu() {
+  const m = $('#menu'), hasDoc = !!doc;
+  const items = [
+    ['image', 'Open photo…', () => pickFiles('open')], ['plus', 'New blank canvas…', newCanvasDialog], ['layers', 'Add photo as layer…', () => pickFiles('add'), !hasDoc], '-',
+    ['paste', 'Paste', () => { closeAll(); doPaste(); }, !clip || !hasDoc], ['all', 'Select all', () => { closeAll(); setTool('select'); selectAll(); }, !hasDoc], '-',
+    ['rot', 'Rotate image 90°', () => { closeAll(); rotateDoc(); }, !hasDoc], ['fliph', 'Flip image', () => { closeAll(); flipDoc(); }, !hasDoc],
+    ['resize', 'Resize image…', resizeDialog, !hasDoc], ['bg', 'Background…', bgDialog, !hasDoc], ['flat', 'Flatten layers', () => { closeAll(); flatten(); }, !hasDoc], ['fit', 'Fit to screen', () => { closeAll(); fit(); }, !hasDoc], '-',
+    ['save', 'Save image…', saveDialog, !hasDoc]];
+  m.innerHTML = ''; items.forEach(it => {
+    if (it === '-') { m.insertAdjacentHTML('beforeend', '<div class="mh"></div>'); return; }
+    const b = document.createElement('button'); b.className = 'mi'; b.disabled = !!it[3]; b.innerHTML = `${ico(it[0])}${it[1]}`; b.onclick = it[2]; m.appendChild(b);
+  });
+  m.hidden = false; $('#scrim').hidden = false;
+}
+function modal(html, mount) { closeAll(); const b = $('#modalBody'); b.innerHTML = html; $('#modal').hidden = false; b.querySelectorAll('[data-close]').forEach(x => x.onclick = closeModal); mount && mount(b); }
+function closeModal() { $('#modal').hidden = true; }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+function newCanvasDialog() {
+  const presets = [['Square', 1080, 1080, 'Instagram post'], ['Story', 1080, 1920, 'Phone wallpaper'], ['Landscape', 1920, 1080, 'Full HD'], ['Photo 4:3', 1600, 1200, 'Classic print']];
+  let W = 1080, H = 1080, bg = '#ffffff';
+  modal(`<h2>New canvas</h2><div class="grid">${presets.map((p, i) => `<button class="chip${i ? '' : ' on'}" data-p="${i}"><b>${p[0]}</b><span>${p[1]}×${p[2]}</span></button>`).join('')}</div>
+    <div class="row"><input class="field" id="nW" type="number" inputmode="numeric" value="${W}"><label>×</label><input class="field" id="nH" type="number" inputmode="numeric" value="${H}"></div>
+    <div class="grid"><button class="chip on" data-bg="#ffffff"><b>White</b><span>background</span></button><button class="chip" data-bg="transparent"><b>Transparent</b><span>background</span></button></div>
+    <div class="btns"><button class="btn" data-close>Cancel</button><button class="btn primary" id="nGo">Create</button></div>`, b => {
+    b.querySelectorAll('[data-p]').forEach(c => c.onclick = () => { const p = presets[c.dataset.p]; b.querySelector('#nW').value = p[1]; b.querySelector('#nH').value = p[2]; b.querySelectorAll('[data-p]').forEach(x => x.classList.toggle('on', x === c)); });
+    b.querySelectorAll('[data-bg]').forEach(c => c.onclick = () => { bg = c.dataset.bg; b.querySelectorAll('[data-bg]').forEach(x => x.classList.toggle('on', x === c)); });
+    b.querySelector('#nGo').onclick = () => {
+      W = Math.min(MAXDIM, Math.max(1, Math.round(+b.querySelector('#nW').value || 0))); H = Math.min(MAXDIM, Math.max(1, Math.round(+b.querySelector('#nH').value || 0)));
+      if (doc) checkpoint(); doc = { w: W, h: H, bg }; layers = []; activeId = null; sel = null; closeModal(); fit(); setTool('move'); toast('Tip: menu → Add photo as layer');
+    };
+  });
+}
+function resizeDialog() {
+  const ow = doc.w, oh = doc.h;
+  modal(`<h2>Resize image</h2><p>Scales the whole picture, keeping its proportions.</p>
+    <div class="row"><input class="field" id="rW" type="number" inputmode="numeric" value="${ow}"><label>×</label><input class="field" id="rH" type="number" inputmode="numeric" value="${oh}"></div>
+    <div class="grid"><button class="chip" data-k=".5"><b>50%</b></button><button class="chip" data-k=".25"><b>25%</b></button></div>
+    <div class="btns"><button class="btn" data-close>Cancel</button><button class="btn primary" id="rGo">Resize</button></div>`, b => {
+    const w = b.querySelector('#rW'), h = b.querySelector('#rH');
+    w.oninput = () => h.value = Math.max(1, Math.round(w.value * oh / ow)); h.oninput = () => w.value = Math.max(1, Math.round(h.value * ow / oh));
+    b.querySelectorAll('[data-k]').forEach(c => c.onclick = () => { w.value = Math.round(ow * c.dataset.k); w.oninput(); });
+    b.querySelector('#rGo').onclick = () => {
+      const nw = Math.min(MAXDIM, Math.max(1, Math.round(+w.value))), k = nw / ow; const nh = Math.max(1, Math.round(oh * k)); if (nh > MAXDIM) return toast('Too large');
+      checkpoint(); doc.w = nw; doc.h = nh; for (const l of layers) { l.x *= k; l.y *= k; l.s *= k; } sel = null; closeModal(); fit(); changed(); toast(`Resized to ${nw} × ${nh}`);
+    };
+  });
+}
+function bgDialog() {
+  const opts = [['transparent', 'Transparent'], ['#ffffff', 'White'], ['#000000', 'Black'], ['#f2e8d5', 'Cream']];
+  modal(`<h2>Background</h2><p>Shows through anywhere you cut or erase.</p><div class="grid">${opts.map(([v, n]) => `<button class="chip${doc.bg === v ? ' on' : ''}" data-v="${v}"><b>${n}</b></button>`).join('')}</div><div class="btns"><button class="btn primary" data-close>Done</button></div>`, b => {
+    b.querySelectorAll('[data-v]').forEach(c => c.onclick = () => { checkpoint(); doc.bg = c.dataset.v; b.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('on', x === c)); changed(); });
+  });
+}
+function saveDialog() {
+  if (!doc) return;
+  modal(`<h2>Save image</h2><p>${doc.w} × ${doc.h} px</p>
+    <button class="btn wide primary" id="sPng">${ico('save')}<div>Save as PNG<small>Best quality, keeps transparent areas</small></div></button>
+    <button class="btn wide" id="sJpg">${ico('save')}<div>Save as JPG<small>Smaller file, transparent areas become white</small></div></button>
+    <div class="btns"><button class="btn" data-close>Cancel</button></div>`, b => {
+    b.querySelector('#sPng').onclick = () => { closeModal(); save('png'); }; b.querySelector('#sJpg').onclick = () => { closeModal(); save('jpg'); };
+  });
+}
+let toastT = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
+
+$('#bMenu').onclick = () => $('#menu').hidden ? openMenu() : closeAll();
+$('#bUndo').onclick = undo; $('#bRedo').onclick = redo; $('#bSave').onclick = saveDialog;
+$('#bLayers').onclick = () => { if ($('#sheet').hidden) { closeAll(); $('#sheet').hidden = false; $('#scrim').hidden = false; $('#bLayers').classList.add('on'); refreshLayers(); } else closeAll(); };
+$('#wOpen').onclick = () => pickFiles('open'); $('#wNew').onclick = newCanvasDialog;
+document.querySelectorAll('.tool').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return; const m = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+  if (m && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); } else if (m && k === 'y') { e.preventDefault(); redo(); }
+  else if (m && k === 'c') doCopy(); else if (m && k === 'x') doCut(); else if (m && k === 'v') doPaste(); else if (m && k === 'a') { e.preventDefault(); selectAll(); }
+  else if (k === 'delete' || k === 'backspace') { sel ? doErase() : delLayer(); } else if (k === 'escape') { sel = null; changed(); }
+});
+// Android back button: close whatever is open first; returning false lets the app go to the background
+window.androidBack = () => {
+  if (!$('#modal').hidden) { closeModal(); return true; }
+  if (!$('#menu').hidden || !$('#sheet').hidden) { closeAll(); return true; }
+  if (sel || lassoPts) { sel = null; lassoPts = null; changed(); return true; }
+  if (tool === 'crop') { setTool('move'); return true; }
+  return false;
+};
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+new ResizeObserver(resize).observe($('#stage'));
+window.addEventListener('resize', () => { checker = null; render(); });
+setTool('move');
+</script>
+</body>
+</html>
