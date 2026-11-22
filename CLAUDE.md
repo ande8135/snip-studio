@@ -125,8 +125,8 @@ workers and Web Share (hence the capability).
 
 Published on GitHub (tag `vX.Y.Z`, APK attached as `SnipStudio-X.Y.Z.apk`). `VERSION_CODE` must go up with every
 release or Android refuses the update as a downgrade: last used is **3** (v0.1.0; codes 1 and 2 were pre-release
-builds sent directly to the owner). Create releases with the REST API (`gh api repos/ande8135/snip-studio/releases`);
-upload the asset to `uploads.github.com`.
+builds sent directly to the owner). Cloud Claude Code sessions are refused when creating releases or pushing tags, so the
+owner publishes them on github.com (Releases › Draft a new release); build the APK and hand it over.
 
 ## Updating the artifact
 
