@@ -189,7 +189,7 @@ nav#tools{flex:0 0 auto;display:flex;background:var(--panel);border-top:1px soli
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
-const cv = $('#cv'), cx = cv.getContext('2d');
+const cv = $('#cv'), cx = cv.getContext('2d', { alpha: false });
 const MAXDIM = 4096, HIST = 30, HANDLE = 26;
 const ico = n => `<svg class="i"><use href="#i-${n}"/></svg>`;
 
@@ -229,14 +229,34 @@ function bbox(pts) { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Inf
 function polyPath(pts) { const p = new Path2D(); pts.forEach(([x, y], i) => i ? p.lineTo(x, y) : p.moveTo(x, y)); p.closePath(); return p; }
 function inPoly(pts, x, y) { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; }
 const rectPts = (a, b) => [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]]];
-const pickC = mk(1, 1), pickX = pickC.getContext('2d', { willReadFrequently: true });
 function localPt(l, x, y) { return tp(LM(l).inverse(), x, y); }
 function inBox(l, x, y) { const [u, v] = localPt(l, x, y); return u >= 0 && v >= 0 && u <= l.canvas.width && v <= l.canvas.height; }
 function alphaAt(l, x, y) {
   const [u, v] = localPt(l, x, y);
   if (u < 0 || v < 0 || u >= l.canvas.width || v >= l.canvas.height) return -1;
-  pickX.clearRect(0, 0, 1, 1); pickX.drawImage(l.canvas, Math.floor(u), Math.floor(v), 1, 1, 0, 0, 1, 1);
-  return pickX.getImageData(0, 0, 1, 1).data[3];
+  const m = alphaMask(l.canvas);
+  return m.a[Math.min(m.h - 1, Math.floor(v * m.ky)) * m.w + Math.min(m.w - 1, Math.floor(u * m.kx))];
+}
+// Layer bitmaps are never modified after creation (see the undo model), so anything derived from one
+// can be cached per canvas. WeakMaps let the caches go away with the canvas.
+const maskCache = new WeakMap(), proxyCache = new WeakMap();
+function alphaMask(c) { // alpha channel at <=512px, read back from the GPU once per bitmap
+  let m = maskCache.get(c); if (m) return m;
+  const k = Math.min(1, 512 / Math.max(c.width, c.height)), w = Math.max(1, Math.round(c.width * k)), h = Math.max(1, Math.round(c.height * k));
+  const t = mk(w, h), tg = t.getContext('2d', { willReadFrequently: true }); tg.drawImage(c, 0, 0, w, h);
+  const px = tg.getImageData(0, 0, w, h).data, a = new Uint8Array(w * h);
+  for (let i = 0; i < a.length; i++) a[i] = px[i * 4 + 3];
+  m = { w, h, kx: w / c.width, ky: h / c.height, a }; maskCache.set(c, m); return m;
+}
+function proxyFor(c, scale) { // smallest cached half-size copy that still has >= 1 source px per device px
+  if (scale >= 0.5) return c;
+  let levels = proxyCache.get(c); if (!levels) proxyCache.set(c, levels = []);
+  let src = c, k = 1;
+  for (let i = 0; scale < k / 2 && Math.min(src.width, src.height) > 32; i++) {
+    if (!levels[i]) { const n = mk(src.width / 2, src.height / 2), ng = n.getContext('2d'); ng.imageSmoothingQuality = 'high'; ng.drawImage(src, 0, 0, n.width, n.height); levels[i] = n; }
+    src = levels[i]; k /= 2;
+  }
+  return src;
 }
 function pick(x, y) {
   // sample a few points around the finger so thin pieces are still easy to grab
@@ -267,7 +287,7 @@ function fit() {
   view.x = (sw - doc.w * view.z) / 2; view.y = (sh - doc.h * view.z) / 2; render(); badge();
 }
 let badgeT = 0;
-function badge() { const b = $('#zoomBadge'); b.textContent = Math.round(view.z * 100) + '%'; b.hidden = false; clearTimeout(badgeT); badgeT = setTimeout(() => b.hidden = true, 900); }
+function badge() { const b = $('#zoomBadge'), t = Math.round(view.z * 100) + '%'; if (b.textContent !== t) b.textContent = t; if (b.hidden) b.hidden = false; clearTimeout(badgeT); badgeT = setTimeout(() => b.hidden = true, 900); }
 function zoomAt(sx, sy, k) { const [dx, dy] = s2d(sx, sy); view.z = Math.min(40, Math.max(0.02, view.z * k)); view.x = sx - dx * view.z; view.y = sy - dy * view.z; badge(); render(); }
 
 // ---------- rendering ----------
@@ -275,7 +295,15 @@ let checker = null;
 function makeChecker() { const d = devicePixelRatio || 1, n = Math.round(8 * d), c = mk(n * 2, n * 2), g = c.getContext('2d'); g.fillStyle = '#c9cbd1'; g.fillRect(0, 0, n * 2, n * 2); g.fillStyle = '#eceef2'; g.fillRect(0, 0, n, n); g.fillRect(n, n, n, n); checker = cx.createPattern(c, 'repeat'); }
 let raf = 0;
 function render() { if (!raf) raf = requestAnimationFrame(draw); }
-function drawLayer(l, V) { if (!l.visible) return; cx.save(); cx.setTransform(V.multiply(LM(l))); cx.globalAlpha *= l.opacity; cx.imageSmoothingQuality = 'high'; cx.drawImage(l.canvas, 0, 0); cx.restore(); }
+let interacting = false; // true while fingers are down: use fast filtering, then redraw sharp on release
+function drawLayer(l, V) {
+  if (!l.visible) return;
+  const c = l.canvas, src = proxyFor(c, view.z * l.s * (devicePixelRatio || 1));
+  cx.save(); cx.setTransform(V.multiply(LM(l))); cx.globalAlpha *= l.opacity;
+  cx.imageSmoothingQuality = interacting ? 'low' : 'high';
+  if (src === c) cx.drawImage(c, 0, 0); else cx.drawImage(src, 0, 0, c.width, c.height);
+  cx.restore();
+}
 function draw() {
   raf = 0; const d = devicePixelRatio || 1;
   cx.setTransform(1, 0, 0, 1, 0, 0); cx.fillStyle = '#0b0c0e'; cx.fillRect(0, 0, cv.width, cv.height);
@@ -283,7 +311,8 @@ function draw() {
   if (!checker) makeChecker();
   const V = VM(), [dx, dy] = d2s(0, 0), dw = doc.w * view.z, dh = doc.h * view.z;
   // parts of layers hanging off the canvas are shown faintly
-  cx.save(); cx.globalAlpha = 0.25; for (const l of layers) drawLayer(l, V); cx.restore();
+  cx.save(); cx.setTransform(d, 0, 0, d, 0, 0); cx.beginPath(); cx.rect(0, 0, sw, sh); cx.rect(dx, dy, dw, dh); cx.clip('evenodd');
+  cx.globalAlpha = 0.25; for (const l of layers) drawLayer(l, V); cx.restore();
   cx.save(); cx.setTransform(d, 0, 0, d, 0, 0); cx.beginPath(); cx.rect(dx, dy, dw, dh); cx.clip();
   cx.fillStyle = doc.bg === 'transparent' ? checker : doc.bg; cx.fillRect(dx, dy, dw, dh);
   for (const l of layers) drawLayer(l, V);
@@ -513,25 +542,35 @@ function showPreview(blob, name) {
 
 // ---------- pointer input ----------
 const ptrs = new Map(); let g = null;
-function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+let cvRect = null;
+function pos(e) { const r = cvRect || cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 cv.addEventListener('pointerdown', e => {
-  if (!doc) return; try { cv.setPointerCapture(e.pointerId); } catch { } ptrs.set(e.pointerId, pos(e));
+  if (!doc) return; try { cv.setPointerCapture(e.pointerId); } catch { }
+  cvRect = cv.getBoundingClientRect(); interacting = true; ptrs.set(e.pointerId, pos(e));
   if (ptrs.size === 1) startSingle(pos(e));
   else if (ptrs.size === 2) { cancelSingle(); startPinch(); }
 });
 cv.addEventListener('pointermove', e => {
   if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, pos(e));
   if (g && g.type === 'pinch') { if (ptrs.size >= 2) movePinch(); }
-  else if (g && ptrs.size === 1) moveSingle(pos(e));
+  else if (g && ptrs.size === 1) {
+    if (g.type === 'paint' && e.getCoalescedEvents) for (const ce of e.getCoalescedEvents()) moveSingle(pos(ce));
+    else moveSingle(pos(e));
+  }
 });
 function up(e) {
   if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId);
   if (g && g.type === 'pinch') { if (ptrs.size < 2) { g = { type: 'idle' }; changed(); } }
   else if (g) { endSingle(); g = null; }
-  if (!ptrs.size) g = null;
+  if (!ptrs.size) { g = null; interacting = false; render(); }
 }
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-cv.addEventListener('wheel', e => { e.preventDefault(); if (!doc) return; const [x, y] = pos(e); zoomAt(x, y, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+let wheelT = 0;
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); if (!doc) return; const [x, y] = pos(e);
+  interacting = true; clearTimeout(wheelT); wheelT = setTimeout(() => { interacting = false; render(); }, 150);
+  zoomAt(x, y, Math.exp(-e.deltaY * 0.0015));
+}, { passive: false });
 
 function startSingle(s) {
   const p = s2d(...s); g = { type: 'none', s0: s, p0: p, moved: false, prevSel: sel };

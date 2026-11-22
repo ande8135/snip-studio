@@ -139,6 +139,25 @@ def test_two_finger_pinch_zooms_the_view(editor: Editor) -> None:
     assert editor.js("view.z") == pytest.approx(before * 2.6, rel=0.05)
 
 
+def test_zoomed_out_layers_draw_from_cached_half_size_copies(editor: Editor) -> None:
+    sizes = editor.js("""() => {
+        const c = layers[0].canvas, a = proxyFor(c, 0.1), b = proxyFor(c, 0.1);
+        return {same: a === b, full: proxyFor(c, 0.8) === c, w: a.width, src: c.width};
+    }""")
+    assert sizes["same"] and sizes["full"]
+    assert sizes["w"] == sizes["src"] // 8  # 0.1 needs >= 1 source px per device px: 1/8 size
+
+
+def test_tapping_transparent_part_of_a_cut_out_does_not_grab_it(editor: Editor) -> None:
+    editor.tap("[data-tool=lasso]")
+    editor.drag((350, 180), (520, 350), (350, 520), (180, 350), (350, 180))  # diamond around the circle
+    editor.tap('#ctx .act:has-text("To layer")')
+    assert editor.js("active().name") == "Cut piece"
+    # the diamond's bounding-box corner is transparent in the cut piece, so the photo underneath gets picked
+    assert editor.js("pick(190, 190).name") == "photo"
+    assert editor.js("pick(350, 350).name") == "Cut piece"
+
+
 ANDROID_MOCK = "window.AndroidBridge = {saveImage: (b, n, m) => { window._saved = [b.length, n, m]; return 'ok'; }};"
 
 

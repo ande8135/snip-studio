@@ -106,6 +106,13 @@ Dragging inside a selection lifts it into a new layer (`doLift`).
 on the active layer) scale and rotate that layer. Move tool: corner handles scale, the knob rotates (snaps to 90°),
 tap on empty space pans or deselects. Hit-testing uses pixel alpha so transparent parts of cut-outs don't grab.
 
+**Rendering performance**: `draw()` runs once per animation frame. Because layer bitmaps are immutable, two
+per-canvas caches live in WeakMaps: `proxyFor()` keeps half/quarter/... size copies so a zoomed-out 12MP photo is
+drawn from a texture near screen size, and `alphaMask()` keeps a <=512px alpha map for hit-testing (no GPU readback
+per tap). While fingers are down `interacting` is true and layers draw with `imageSmoothingQuality = 'low'`; releasing
+triggers one sharp redraw. The faint off-canvas pass is clipped to outside the document. Keep new per-frame work cheap,
+and never read pixels back from a canvas inside `draw()` or `pointermove`.
+
 **Saving** (`save(fmt)`), in order: `window.AndroidBridge` (APK) → artifact `downloads` capability via
 `window.claude.use('downloads')` → fallback preview modal (long-press to save, plus an `<a download>`).
 `window.androidBack()` closes the modal, menu or sheet, clears the selection, or leaves crop; returns false when
@@ -113,6 +120,13 @@ nothing is open.
 
 Limits: images are downscaled to `MAXDIM = 4096` on import; the artifact sandbox blocks direct downloads, service
 workers and Web Share (hence the capability).
+
+## Releases
+
+Published on GitHub (tag `vX.Y.Z`, APK attached as `SnipStudio-X.Y.Z.apk`). `VERSION_CODE` must go up with every
+release or Android refuses the update as a downgrade: last used is **3** (v0.1.0; codes 1 and 2 were pre-release
+builds sent directly to the owner). Create releases with the REST API (`gh api repos/ande8135/snip-studio/releases`);
+upload the asset to `uploads.github.com`.
 
 ## Updating the artifact
 
